@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // Orientation is a type that indicates in which direction the piece is moved.
@@ -64,6 +65,55 @@ func NewBoard(width, height int) (*Board, error) {
 		slots:  slotsValue,
 		pieces: make(map[*Piece]Location),
 	}, nil
+}
+
+func NewWellKnownBoard() (board *Board, err error) {
+	/*
+		A B B C
+		A B B C
+		D E E F
+		D G H F
+		  I J
+	*/
+	board, _ = NewBoard(4, 5)
+	for _, toAdd := range []struct {
+		id, width, height, x, y int
+	}{
+		{1, 1, 2, 0, 0},  // A
+		{2, 2, 2, 1, 0},  // B
+		{3, 1, 2, 3, 0},  // C
+		{4, 1, 2, 0, 2},  // D
+		{5, 2, 1, 1, 2},  // E
+		{6, 1, 2, 3, 2},  // F
+		{7, 1, 1, 1, 3},  // G
+		{8, 1, 1, 2, 3},  // H
+		{9, 1, 1, 1, 4},  // I
+		{10, 1, 1, 2, 4}, // J
+	} {
+		piece, _ := NewPiece(toAdd.id, toAdd.width, toAdd.height)
+		err = board.AddPiece(piece, toAdd.x, toAdd.y)
+		if err != nil {
+			return
+		}
+	}
+
+	return
+}
+
+func (p *Board) String() string {
+	var sb strings.Builder
+	for y := 0; y < p.Height; y++ {
+		for x := 0; x < p.Width; x++ {
+			val := 0
+			piece, _ := p.GetPieceAt(x, y)
+			if piece != nil {
+				val = piece.ID
+			}
+			sb.WriteString(fmt.Sprintf("%02d  ", val))
+		}
+		sb.WriteString("\n")
+	}
+	return sb.String()
 }
 
 // AddPiece adds a Piece instance at the specified location.  If the piece

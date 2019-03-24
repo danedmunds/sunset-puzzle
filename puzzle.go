@@ -9,15 +9,10 @@ type Test struct {
 }
 
 func main() {
-	matrix := make([][]int, 4)
-	for i := range matrix {
-		matrix[i] = make([]int, 4)
-	}
-	t := Test{
-		W:     4,
-		H:     4,
-		slots: matrix,
+	board, err := NewWellKnownBoard()
+	if err != nil {
+		panic(err)
 	}
 
-	fmt.Printf("%#v\n", t)
+	fmt.Println(board)
 }
