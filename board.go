@@ -69,11 +69,18 @@ func NewBoard(width, height int) (*Board, error) {
 
 func NewWellKnownBoard() (board *Board, err error) {
 	/*
-		A B B C
-		A B B C
-		D E E F
-		D G H F
-		  I J
+		Start:
+			A B B C
+			A B B C
+			D E E F
+			D G H F
+			  I J
+		Goal:
+		   X X X X
+		   X X X X
+		   X X X X
+		   X B B X
+		   X B B X
 	*/
 	board, _ = NewBoard(4, 5)
 	for _, toAdd := range []struct {
@@ -96,6 +103,12 @@ func NewWellKnownBoard() (board *Board, err error) {
 			return
 		}
 	}
+
+	sun, err := board.GetPieceAt(1, 0)
+	if err != nil || sun == nil {
+		panic("couldn't set goal")
+	}
+	board.SetGoal(sun, 1, 3)
 
 	return
 }
