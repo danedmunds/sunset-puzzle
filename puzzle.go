@@ -14,5 +14,15 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Println(board)
+	solved, solution := Solve(board)
+	if solved {
+		fmt.Println("Solution found!")
+		fmt.Println("Steps:")
+		for _, step := range solution {
+			fmt.Println(step)
+			fmt.Println()
+		}
+	} else {
+		fmt.Println("No solution found")
+	}
 }

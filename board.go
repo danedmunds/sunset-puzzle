@@ -223,6 +223,24 @@ func (p *Board) MovePiece(piece *Piece, orientation Orientation) error {
 	return nil
 }
 
+func (p *Board) Undo(piece *Piece, orientation Orientation) error {
+	var undo Orientation
+	switch orientation {
+	case Up:
+		undo = Down
+	case Down:
+		undo = Up
+	case Left:
+		undo = Right
+	case Right:
+		undo = Left
+	default:
+		return fmt.Errorf("Invalid direction")
+	}
+
+	return p.MovePiece(piece, undo)
+}
+
 // PieceFitsOnBoardAtPosition checks whether a piece would fit on the board at the position
 func (p *Board) PieceFitsOnBoardAtPosition(piece *Piece, x, y int) bool {
 	return x < 0 || x+piece.Width > p.Width || y < 0 || y+piece.Height > p.Height
@@ -281,4 +299,48 @@ func (p *Board) IsSolved() bool {
 	}
 
 	return false
+}
+
+func Solve(board *Board) (bool, []string) {
+	seen := make(map[string]bool)
+	path := []string{board.String()}
+
+	return innerSolve(board, seen, path)
+}
+
+func innerSolve(board *Board, seen map[string]bool, path []string) (bool, []string) {
+	state := board.String()
+
+	if seen[state] {
+		return false, nil
+	}
+	seen[state] = true
+
+	if board.IsSolved() {
+		return true, path
+	}
+
+	for piece, _ := range board.pieces {
+		for _, orientation := range []Orientation{Up, Down, Left, Right} {
+			err := board.MovePiece(piece, orientation)
+			if err != nil {
+				continue
+			}
+
+			path = append(path, board.String())
+			solved, solutionPath := innerSolve(board, seen, path)
+			if solved {
+				return solved, solutionPath
+			}
+
+			path = path[:len(path)-1]
+			err = board.Undo(piece, orientation)
+			if err != nil {
+				panic("could not undo a move that was made")
+			}
+		}
+
+	}
+
+	return false, nil
 }
