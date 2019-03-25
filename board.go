@@ -129,6 +129,22 @@ func (p *Board) String() string {
 	return sb.String()
 }
 
+func (p *Board) TrackingString() string {
+	var sb strings.Builder
+	for y := 0; y < p.Height; y++ {
+		for x := 0; x < p.Width; x++ {
+			val := "00"
+			piece, _ := p.GetPieceAt(x, y)
+			if piece != nil {
+				val = fmt.Sprintf("%d%d", piece.Width, piece.Height)
+			}
+			sb.WriteString(val)
+		}
+		sb.WriteString("\n")
+	}
+	return sb.String()
+}
+
 // AddPiece adds a Piece instance at the specified location.  If the piece
 // would overlap with an existing piece, it is not placed and an error is
 // returned.
@@ -309,12 +325,12 @@ func Solve(board *Board) (bool, []string) {
 }
 
 func innerSolve(board *Board, seen map[string]bool, path []string) (bool, []string) {
-	state := board.String()
+	trackingString := board.TrackingString()
 
-	if seen[state] {
+	if seen[trackingString] {
 		return false, nil
 	}
-	seen[state] = true
+	seen[trackingString] = true
 
 	if board.IsSolved() {
 		return true, path

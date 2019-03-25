@@ -17,6 +17,7 @@ func main() {
 	solved, solution := Solve(board)
 	if solved {
 		fmt.Println("Solution found!")
+		fmt.Printf("Length: %d\n", len(solution))
 		fmt.Println("Steps:")
 		for _, step := range solution {
 			fmt.Println(step)
