@@ -23,6 +23,21 @@ const (
 	Left
 )
 
+func (o Orientation) String() string {
+	switch o {
+	case Up:
+		return "Up"
+	case Down:
+		return "Down"
+	case Right:
+		return "Right"
+	case Left:
+		return "Left"
+	default:
+		panic("unknown orientation")
+	}
+}
+
 // Goal - The "win" situation of the board.
 type Goal struct {
 	Piece *Piece
@@ -113,6 +128,27 @@ func NewWellKnownBoard() (board *Board, err error) {
 	return
 }
 
+func (p *Board) Clone() *Board {
+	clone := &Board{Width: p.Width, Height: p.Height, Goal: p.Goal}
+
+	slots := make([][]*Piece, len(p.slots), len(p.slots))
+	for x := 0; x < len(slots); x++ {
+		slots[x] = make([]*Piece, len(p.slots[x]), len(p.slots[x]))
+		for y := 0; y < len(slots[x]); y++ {
+			slots[x][y] = p.slots[x][y]
+		}
+	}
+	clone.slots = slots
+
+	pieces := make(map[*Piece]Location)
+	for k, v := range p.pieces {
+		pieces[k] = v
+	}
+	clone.pieces = pieces
+
+	return clone
+}
+
 func (p *Board) String() string {
 	var sb strings.Builder
 	for y := 0; y < p.Height; y++ {
@@ -201,9 +237,36 @@ func (p *Board) SetGoal(piece *Piece, x, y int) error {
 // MovePiece moves the specified piece by 1 square in the given direction.
 func (p *Board) MovePiece(piece *Piece, orientation Orientation) error {
 	// Check if the piece can be moved.
+	x, y, err := p.ValidateMovePiece(piece, orientation)
+	if err != nil {
+		return err
+	}
+
+	p.RemovePiece(piece)
+	p.AddPiece(piece, x, y)
+
+	return nil
+}
+
+func (p *Board) MovePieceAndClone(piece *Piece, orientation Orientation) *Board {
+	// Check if the piece can be moved.
+	x, y, err := p.ValidateMovePiece(piece, orientation)
+	if err != nil {
+		return nil
+	}
+
+	clone := p.Clone()
+	clone.RemovePiece(piece)
+	clone.AddPiece(piece, x, y)
+
+	return clone
+}
+
+func (p *Board) ValidateMovePiece(piece *Piece, orientation Orientation) (x, y int, err error) {
+	// Check if the piece can be moved.
 	l := p.pieces[piece]
-	x := l.x
-	y := l.y
+	x = l.x
+	y = l.y
 
 	switch orientation {
 	case Up:
@@ -221,22 +284,19 @@ func (p *Board) MovePiece(piece *Piece, orientation Orientation) error {
 	}
 
 	if p.PieceFitsOnBoardAtPosition(piece, x, y) {
-		return fmt.Errorf("Moving piece %d (%d, %d - %d, %d) would put it outside the bounds of the puzzle board (0, 0 - %d, %d)", piece.ID, x, y, x+piece.Width, y+piece.Height, p.Width, p.Height)
+		return x, y, fmt.Errorf("Moving piece %d (%d, %d - %d, %d) would put it outside the bounds of the puzzle board (0, 0 - %d, %d)", piece.ID, x, y, x+piece.Width, y+piece.Height, p.Width, p.Height)
 	}
 
 	for i := 0; i < piece.Width; i++ {
 		for j := 0; j < piece.Height; j++ {
 			slotPiece := p.slots[x+i][y+j]
 			if slotPiece != nil && slotPiece != piece {
-				return fmt.Errorf("Moving piece %d would cause it to overlap piece %d", piece.ID, slotPiece.ID)
+				return x, y, fmt.Errorf("Moving piece %d would cause it to overlap piece %d", piece.ID, slotPiece.ID)
 			}
 		}
 	}
 
-	p.RemovePiece(piece)
-	p.AddPiece(piece, x, y)
-
-	return nil
+	return x, y, nil
 }
 
 func (p *Board) Undo(piece *Piece, orientation Orientation) error {
@@ -317,14 +377,14 @@ func (p *Board) IsSolved() bool {
 	return false
 }
 
-func Solve(board *Board) (bool, []string) {
+func DepthFirstSolve(board *Board) (bool, []string) {
 	seen := make(map[string]bool)
 	path := []string{board.String()}
 
-	return innerSolve(board, seen, path)
+	return innerDepthFirstSolve(board, seen, path)
 }
 
-func innerSolve(board *Board, seen map[string]bool, path []string) (bool, []string) {
+func innerDepthFirstSolve(board *Board, seen map[string]bool, path []string) (bool, []string) {
 	trackingString := board.TrackingString()
 
 	if seen[trackingString] {
@@ -344,7 +404,7 @@ func innerSolve(board *Board, seen map[string]bool, path []string) (bool, []stri
 			}
 
 			path = append(path, board.String())
-			solved, solutionPath := innerSolve(board, seen, path)
+			solved, solutionPath := innerDepthFirstSolve(board, seen, path)
 			if solved {
 				return solved, solutionPath
 			}
@@ -359,4 +419,104 @@ func innerSolve(board *Board, seen map[string]bool, path []string) (bool, []stri
 	}
 
 	return false, nil
+}
+
+type BackardsLink struct {
+	previous *BackardsLink
+	state    string
+}
+
+type State struct {
+	board *Board
+	path  *BackardsLink
+}
+
+func (l *BackardsLink) isRoot() bool {
+	return l.previous == nil
+}
+
+func (l *BackardsLink) toStringSlice() []string {
+	result := []string{l.state}
+	previous := l
+	for ; !previous.isRoot(); previous = previous.previous {
+		result = append(result, previous.state)
+	}
+
+	// add the root
+	result = append(result, previous.state)
+
+	return reverse(result)
+}
+
+func reverse(r []string) []string {
+	for i := 0; i < len(r)/2; i++ {
+		swap := r[i]
+		r[i] = r[len(r)-i-1]
+		r[len(r)-i-1] = swap
+	}
+	return r
+}
+
+func BreadthFirstSolve(board *Board) (bool, []string) {
+	if board.IsSolved() {
+		panic("board is already solved")
+	}
+
+	seen := make(map[string]bool)
+	seen[board.TrackingString()] = true
+
+	path := &BackardsLink{
+		state: board.String(),
+	}
+	states := []*State{
+		{board: board.Clone(), path: path},
+	}
+
+	solved, solution := innerBreathFirstSolve(seen, states)
+	var res []string
+	if solved {
+		res = solution.toStringSlice()
+	}
+	return solved, res
+}
+
+func innerBreathFirstSolve(seen map[string]bool, states []*State) (bool, *BackardsLink) {
+	var nextStates []*State
+
+	for _, state := range states {
+		board := state.board
+		path := state.path
+		for piece := range board.pieces {
+			for _, orientation := range []Orientation{Up, Down, Left, Right} {
+				result := board.MovePieceAndClone(piece, orientation)
+				if result == nil {
+					continue
+				}
+
+				stateId := result.TrackingString()
+				if seen[stateId] {
+					continue
+				}
+				seen[stateId] = true
+
+				movePath := &BackardsLink{previous: path, state: fmt.Sprintf("%02d move %s\n%s", piece.ID, orientation.String(), result.String())}
+				if result.IsSolved() {
+					return true, movePath
+				}
+
+				moveState := &State{
+					board: result, path: movePath,
+				}
+
+				nextStates = append(nextStates, moveState)
+			}
+
+		}
+	}
+
+	if len(nextStates) == 0 {
+		return false, nil
+	}
+
+	return innerBreathFirstSolve(seen, nextStates)
 }

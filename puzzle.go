@@ -14,7 +14,8 @@ func main() {
 		panic(err)
 	}
 
-	solved, solution := Solve(board)
+	// solved, solution := DepthFirstSolve(board)
+	solved, solution := BreadthFirstSolve(board)
 	if solved {
 		fmt.Println("Solution found!")
 		fmt.Printf("Length: %d\n", len(solution))
